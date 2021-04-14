@@ -1,0 +1,225 @@
+---
+title: "Appendix: Data Analysis Documentation"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  html_notebook: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = NA)
+```
+
+This appendix describes the R-code that was used for the analyses in the paper "Word-order variation in a contact setting: A corpus-based investigation of Russian spoken in Daghestan" by Chiara Naccarato, Anastasia Panova, Natalia Stoynova.
+
+The R version:
+```{r}
+getRversion()
+```
+
+Versions of the packages used in the analysis are specified in the very end of the document.
+
+
+## Data preparation
+
+Set the working directory
+```{r}
+setwd("/Users/apanova/OneDrive/Documents/ConLab/WordOrder/WordOrder_R")
+```
+
+
+Import the data in R
+```{r, message=FALSE}
+library("tidyverse")
+```
+
+```{r}
+gen <- read.csv("dag_rus.csv", stringsAsFactors=TRUE)
+```
+
+Set the correct reference levels
+```{r}
+gen$head_lexical_class <- relevel(gen$head_lexical_class, "non_kinship")
+gen$gen_lexical_class <- relevel(gen$gen_lexical_class, "non_human")
+gen$gender <- relevel(gen$gender,"m")
+gen$gen_referentiality <- relevel(gen$gen_referentiality,"non_definite")
+gen$gen_length <- relevel(gen$gen_length,"one-word")
+gen$head_length <- relevel(gen$head_length,"multi-word")
+gen$givenness <- relevel(gen$givenness,"other")
+gen$year_of_birth <- relevel(gen$year_of_birth, "<1950")
+```
+
+```{r, include=FALSE}
+#The symbol "more or equal" in the parameter `year_of_birth` creates an error during knitting to PDF, so it is replaced by the symbol "more".
+levels(gen$year_of_birth) <- c("<1950", ">1950")
+```
+
+
+## Logistic regression
+
+
+### Full model
+
+```{r, message=FALSE}
+library("lme4")
+```
+
+```{r}
+model1 <- glmer (position ~ gen_lexical_class + head_lexical_class + education + 
+                   gender + gen_referentiality + language_family + year_of_birth +
+                   gen_individuation + gen_length + head_length + givenness + 
+                   (1|speaker), data = gen, family ="binomial",
+                 control = glmerControl(optimizer ="bobyqa"))
+summary(model1)
+```
+
+### Step-wise selection procedure
+
+```{r, warning=FALSE}
+drop1(model1)
+```
+
+without year of birth
+```{r, warning=FALSE}
+model2 <- glmer (position ~ gen_lexical_class + head_lexical_class + education + 
+                   gender + gen_referentiality + language_family + 
+                   gen_individuation + gen_length + head_length + givenness + 
+                   (1|speaker), data = gen, family ="binomial",
+                 control = glmerControl(optimizer ="bobyqa"))
+drop1(model2)
+```
+
+without givenness
+```{r}
+model3 <- glmer (position ~ gen_lexical_class + head_lexical_class + education + 
+                   gender + gen_referentiality + language_family + 
+                   gen_individuation + gen_length + head_length + 
+                   (1|speaker), data = gen, family ="binomial",
+                 control = glmerControl(optimizer ="bobyqa"))
+drop1(model3)
+```
+
+without language family
+```{r}
+model4 <- glmer (position ~ gen_lexical_class + head_lexical_class + education + 
+                   gender + gen_referentiality + 
+                   gen_individuation + gen_length + head_length + 
+                   (1|speaker), data = gen, family ="binomial",
+                 control = glmerControl(optimizer ="bobyqa"))
+drop1(model4)
+```
+
+without gen_individuation
+```{r}
+model5 <- glmer (position ~ gen_lexical_class + head_lexical_class + education + 
+                   gender + gen_referentiality + 
+                   gen_length + head_length + 
+                   (1|speaker), data = gen, family ="binomial",
+                 control = glmerControl(optimizer ="bobyqa"))
+drop1(model5)
+```
+
+without education
+```{r}
+model6 <- glmer (position ~ gen_lexical_class + head_lexical_class + 
+                   gender + gen_referentiality + 
+                   gen_length + head_length + 
+                   (1|speaker), data = gen, family ="binomial",
+                 control = glmerControl(optimizer ="bobyqa"))
+drop1(model6)
+```
+
+without head_length
+```{r}
+model7 <- glmer (position ~ gen_lexical_class + head_lexical_class + 
+                   gender + gen_referentiality + 
+                   gen_length + 
+                   (1|speaker), data = gen, family ="binomial",
+                 control = glmerControl(optimizer ="bobyqa"))
+```
+
+```{r}
+drop1(model7)
+```
+
+### Minimal adequate model
+
+
+```{r}
+summary(model7)
+```
+
+
+Visualization of the estimates in the minimal adequate model
+
+```{r, message=FALSE}
+library(sjPlot)
+library(ggplot2)
+```
+
+```{r}
+plot_model(model7, type = "est", show.values = TRUE, sort.est = TRUE, value.offset = .3)
+```
+
+
+Obtaining the C value for the minimal adequate model
+
+```{r, message=FALSE}
+library(Hmisc)
+```
+
+```{r}
+somers2(binomial()$linkinv(fitted(model7)), as.numeric(gen$position) -1)
+```
+
+Calculating the proportion of correctly predicted values
+
+```{r, message=FALSE}
+library("gmodels")
+```
+
+```{r}
+fitted <- fitted(model7)
+predicted <- ifelse(fitted >= .5, 1,0)
+a <- data.frame(gen, predicted)
+CrossTable(gen$position, a$predicted)
+```
+
+Investigating whether multicollinearity is a problem for the predictors in the model
+
+```{r, message=FALSE}
+library(languageR)
+```
+
+```{r, warning=FALSE}
+collin.fnc(getME(model7, "X")[, -1])$cnumber
+```
+
+
+## Random forest
+
+```{r, message=FALSE}
+library("party")
+```
+
+
+parameters of the minimal adequate model
+
+```{r}
+gen_rf <- cforest(position ~ gen_lexical_class + head_lexical_class + 
+                    gender + gen_referentiality + gen_length,
+                  data = gen, controls = cforest_unbiased(ntree = 1000, mtry = 2))
+gen_varimp <- varimp(gen_rf, conditional = TRUE)
+dotchart(sort(gen_varimp), main = "Conditional importance of variables")
+```
+
+
+
+----
+
+Versions of the packages used in the analysis:
+```{r}
+installed.packages()[names(sessionInfo()$otherPkgs), "Version"]
+``` 
+
