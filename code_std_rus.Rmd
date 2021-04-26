@@ -1,0 +1,53 @@
+---
+title: "Analysis of the Standard Russian data"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  html_notebook: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This appendix will not be included in the final version.
+
+
+
+## Preparation of the data
+
+```{r, message=FALSE}
+library("tidyverse")
+```
+
+Import the data in R
+```{r}
+gen_std <- read.csv("std_rus.csv", stringsAsFactors=TRUE)
+```
+
+
+Set correct reference levels
+```{r}
+gen_std$head_lexical_class <- relevel(gen_std$head_lexical_class, "non_kinship")
+gen_std$gen_lexical_class <- relevel(gen_std$gen_lexical_class, "non_human")
+gen_std$gen_referentiality <- relevel(gen_std$gen_referentiality,"non_definite")
+gen_std$gen_length <- relevel(gen_std$gen_length,"one-word")
+```
+
+
+## Random forest
+
+```{r, message=FALSE}
+library("party")
+```
+
+```{r, cache=TRUE}
+gen_std_rf <- cforest(position ~ gen_lexical_class + head_lexical_class + 
+                        gen_referentiality + gen_length,
+                      data = gen_std, controls = cforest_unbiased(ntree = 500, mtry = 2))
+gen_std_varimp <- varimp(gen_std_rf, conditional = TRUE)
+dotchart(sort(gen_std_varimp), main = "Conditional importance of variables")
+```
+
+

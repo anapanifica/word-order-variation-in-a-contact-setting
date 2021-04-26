@@ -23,11 +23,6 @@ Versions of the packages used in the analysis are specified at the very end of t
 
 ## Data preparation
 
-Set the working directory
-```{r}
-setwd("/Users/apanova/OneDrive/Documents/ConLab/WordOrder/WordOrder_R")
-```
-
 
 Import the data in R
 ```{r, message=FALSE}
