@@ -11,7 +11,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE, comment = NA)
 ```
 
-This appendix describes the R-code that was used for the analysis in the paper "Word-order variation in a contact setting: A corpus-based investigation of Russian spoken in Daghestan" by Chiara Naccarato, Anastasia Panova, Natalia Stoynova.
+This appendix describes the R-code that was used for the analysis in the paper "Word-order variation in a contact setting: A corpus-based investigation of Russian spoken in Daghestan".
 
 R version:
 ```{r}
@@ -201,6 +201,8 @@ library(languageR)
 collin.fnc(getME(model7, "X")[, -1])$cnumber
 ```
 
+The results do not reveal any problems with the model.
+
 
 ## Random forest
 
@@ -220,6 +222,25 @@ gen_varimp <- varimp(gen_rf, conditional = TRUE)
 dotchart(sort(gen_varimp), main = "Conditional importance of variables")
 ```
 
+Calculating the accuracy measure
+
+```{r}
+table(predict(gen_rf), gen$position)
+```
+
+```{r}
+(64 + 362)/482
+```
+
+Calculating the C-value
+
+```{r}
+gen_rf.pred <- unlist(treeresponse(gen_rf))[c(FALSE,TRUE)]
+somers2(gen_rf.pred, as.numeric(gen$position) -1)
+```
+
+
+The results do not reveal any problems with the forest.
 
 
 ----
